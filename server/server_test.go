@@ -400,9 +400,8 @@ func TestRoomWaitsForEveryoneToBuffer(t *testing.T) {
 }
 
 func TestRoomStopsWaitingForStragglers(t *testing.T) {
-	maxWait = 200 * time.Millisecond
-	t.Cleanup(func() { maxWait = 5 * time.Second })
-	srv, _ := newTestServer(t)
+	srv, hub := newTestServer(t)
+	hub.maxWait = 200 * time.Millisecond
 	a, _ := dial(t, srv, "")
 	b, _ := dial(t, srv, "")
 	a.send(map[string]any{"type": "join", "room": "party"})

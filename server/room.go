@@ -35,6 +35,7 @@ type Room struct {
 	waiting   bool
 	ready     map[*client]struct{}
 	waitTimer *time.Timer
+	maxWait   time.Duration
 }
 
 type stateMessage struct {
@@ -55,18 +56,18 @@ const (
 	// startMargin puts the start far enough ahead that the broadcast
 	// reaches everyone before it happens.
 	startMargin = 300 * time.Millisecond
+	// defaultMaxWait is how long a room waits for slow viewers before
+	// starting without them; they catch up on their own.
+	defaultMaxWait = 5 * time.Second
 )
-
-// maxWait is how long a room waits for slow viewers before starting without
-// them; they catch up on their own. A variable so tests can shorten it.
-var maxWait = 5 * time.Second
 
 func nowMs() float64 {
 	return float64(time.Now().UnixNano()) / 1e6
 }
 
 func newRoom(name string, src *Source, locked bool) *Room {
-	return &Room{name: name, src: src, locked: locked, paused: true, at: nowMs(), clients: map[*client]struct{}{}}
+	return &Room{name: name, src: src, locked: locked, paused: true, at: nowMs(),
+		clients: map[*client]struct{}{}, maxWait: defaultMaxWait}
 }
 
 func (r *Room) positionAt(t float64) float64 {
@@ -113,9 +114,9 @@ func (r *Room) apply(action string, position *float64, t float64) bool {
 func (r *Room) wait(t float64) {
 	r.waiting = true
 	r.ready = map[*client]struct{}{}
-	r.at = t + float64(maxWait.Milliseconds())
+	r.at = t + float64(r.maxWait.Milliseconds())
 	rev := r.rev
-	r.waitTimer = time.AfterFunc(maxWait, func() {
+	r.waitTimer = time.AfterFunc(r.maxWait, func() {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		if r.waiting && r.rev == rev {
@@ -218,10 +219,11 @@ type Hub struct {
 	rooms    map[string]*Room
 	src      *Source
 	maxRooms int
+	maxWait  time.Duration
 }
 
 func newHub(src *Source, maxRooms int) *Hub {
-	return &Hub{rooms: map[string]*Room{}, src: src, maxRooms: maxRooms}
+	return &Hub{rooms: map[string]*Room{}, src: src, maxRooms: maxRooms, maxWait: defaultMaxWait}
 }
 
 func (h *Hub) addScheduled(name string, src *Source) *Room {
@@ -246,6 +248,7 @@ func (h *Hub) join(c *client, name string) *Room {
 			return nil
 		}
 		room = newRoom(name, h.src, false)
+		room.maxWait = h.maxWait
 		h.rooms[name] = room
 	}
 	room.mu.Lock()

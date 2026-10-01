@@ -25,14 +25,6 @@ npm-debug.log*
 bower_components/
 node_modules/
 
-# Build-related directories
-dist/
-es/
-cjs/
-docs/api/
-test/dist/
-.eslintcache
-.yo-rc.json
-
-# python venv
-.venv/
+# Server binary
+/sync-server
+/sync-server.exe

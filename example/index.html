@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Media Sync</title>
+  <style>
+    :root {
+      --bg: #f4f1ea;
+      --fg: #1d1b18;
+      --muted: #6b655c;
+      --panel: #fffdf8;
+      --line: #ddd6c8;
+      --accent: #c2410c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #12110f;
+        --fg: #ede8df;
+        --muted: #9a9286;
+        --panel: #1c1a17;
+        --line: #322e29;
+        --accent: #fb923c;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 15px/1.5 system-ui, sans-serif;
+    }
+    main { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    p { margin: 0 0 16px; color: var(--muted); }
+    nav { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+    nav a {
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: inherit;
+      text-decoration: none;
+    }
+    nav a[aria-current] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+    .screen { position: relative; background: #000; border-radius: 8px; overflow: hidden; }
+    video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      gap: 8px;
+      align-content: center;
+      color: #fff;
+      background: rgb(0 0 0 / 0.6);
+      text-align: center;
+      font-size: 18px;
+    }
+    .overlay[hidden] { display: none; }
+    .overlay strong { font-size: 48px; font-variant-numeric: tabular-nums; }
+    button {
+      font: inherit;
+      padding: 8px 16px;
+      border: 0;
+      border-radius: 6px;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+    }
+    .bar { display: flex; gap: 8px; margin-top: 8px; }
+    .bar button { background: var(--panel); color: var(--fg); border: 1px solid var(--line); }
+    dl {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+      margin: 16px 0 0;
+    }
+    dl div { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; }
+    dt { font-size: 12px; color: var(--muted); }
+    dd { margin: 0; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Media Sync</h1>
+    <p id="blurb">Open this page in two tabs. Play, pause and seek in either one; the other follows.</p>
+    <nav id="rooms">
+      <a href="?room=party">Party room</a>
+      <a href="?room=drive-in">Drive-in (scheduled)</a>
+    </nav>
+
+    <div class="screen">
+      <video id="video" playsinline preload="auto"></video>
+      <div class="overlay" id="countdown" hidden>
+        <span id="countdown-label">Next showing in</span>
+        <strong id="countdown-time">0:00</strong>
+      </div>
+      <div class="overlay" id="blocked" hidden>
+        <span>Your browser wants a click before it plays sound.</span>
+        <button id="join">Pull in</button>
+      </div>
+    </div>
+    <div class="bar" id="locked-bar" hidden>
+      <button id="mute">Mute</button>
+      <button id="fullscreen">Fullscreen</button>
+    </div>
+
+    <dl>
+      <div><dt>Room</dt><dd id="s-room">–</dd></div>
+      <div><dt>Room is</dt><dd id="s-state">connecting…</dd></div>
+      <div><dt>Room position</dt><dd id="s-expected">–</dd></div>
+      <div><dt>Drift</dt><dd id="s-drift">–</dd></div>
+      <div><dt>Rate</dt><dd id="s-rate">–</dd></div>
+      <div><dt>Clock offset / RTT</dt><dd id="s-clock">–</dd></div>
+    </dl>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

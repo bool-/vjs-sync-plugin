@@ -22,6 +22,22 @@ v1 includes:
 Not in v1: recurring schedules, several screens, voting on what to show,
 chat (streams has its own).
 
+## One platform
+
+The drive-in is part of streams: same login, same shell, same Manage
+panel. Viewers never notice there are two services.
+
+- **Streams renders every page:**
+  - the drive-in viewer page, in the streams shell next to channels and
+    the guide
+  - the admin UI, as a **Manage → Drive-in** tab beside the existing
+    Manage pages
+- **media-sync renders no pages.** It is a backend behind the same
+  nginx: the sync WebSocket, the media relay and a JSON API. The pages
+  call it from the browser, through nginx, under the streams session.
+- In production media-sync serves no HTML. Its `example/` page stays for
+  local development only.
+
 ## Who can do what
 
 Both use the streams login, through the nginx `auth_request` handoff in
@@ -34,9 +50,11 @@ answers with three headers:
 | `X-Streams-Name` | display name |
 | `X-Streams-Admin` | `1` for streams admins (Discord admin role), otherwise absent |
 
-- **Viewers:** anyone signed in to streams can open `/drive-in` and join.
-- **Admins:** only `X-Streams-Admin: 1` can reach `/drive-in/admin` and
-  the admin API.
+- **Viewers:** anyone signed in to streams can open the Drive-in page
+  and join.
+- **Admins:** streams already gates **Manage → Drive-in** to admins. The
+  admin API in media-sync checks `X-Streams-Admin: 1` again on every call,
+  so it never relies on the page being hidden.
 
 ## Showings
 
@@ -104,7 +122,8 @@ showtime doesn't wait on Plex.
 
 ## Admin page
 
-`/drive-in/admin` is a single page served by media-sync, for admins only.
+This is **Manage → Drive-in** in streams, a streams template using the
+Manage panel's layout. Its JavaScript calls the media-sync admin API.
 
 **Schedule a showing:**
 
@@ -204,13 +223,13 @@ All JSON, under `/drive-in/api/admin/`:
 | D2 | Join 20 min late | lands within 0.5 s of the room position |
 | D3 | 3-episode run, 60 s intermission | intermission cards show; the next episode starts on time with no manual action |
 | D4 | Restart media-sync during episode 2 | viewers resume episode 2 at the right point |
-| D5 | Non-admin opens `/drive-in/admin` and calls the API | 403 on both |
+| D5 | Non-admin opens Manage → Drive-in and calls the admin API directly | streams refuses the page; the API returns 403 |
 | D6 | Overlapping showing | refused, with the clash named |
 | D7 | Stop Plex 1 min before showtime, start it 3 min after | "Technical difficulties", then everyone joins at minute 2 |
 
 ## Streams changes (planned, not done yet)
 
-All three are small, and they are the whole streams side of this:
+This is the whole streams side:
 
 1. **Auth endpoint:** `GET /internal/auth/media-sync`. It reads the
    streams session and answers 204 with `X-Streams-User`,
@@ -218,13 +237,18 @@ All three are small, and they are the whole streams side of this:
    nginx `auth_request` and is marked `internal` in nginx, so browsers
    can't call it.
 2. **nginx:**
-   - `/drive-in`, `/drive-in/api/` and `/sync/ws` go through
-     `auth_request` and then to media-sync, with `auth_request_set` for
-     the three headers. Client-sent copies are cleared.
+   - `/drive-in/api/` and `/sync/ws` go through `auth_request` and then
+     to media-sync, with `auth_request_set` for the three headers.
+     Client-sent copies are cleared.
    - `/media/` goes to media-sync without `auth_request`; the grant is
      the authorization.
    - Add tests in `tests/test_nginx_auth.py`.
-3. **Nav link** to "Drive-in" in the streams shell.
+3. **Drive-in page:** a streams route and template in the shell, with a
+   nav link. It loads `sync.js` and hls.js and renders the lobby,
+   intermission, technical-difficulties and end cards.
+4. **Manage → Drive-in tab:** a streams template using the Manage
+   panel's layout. It searches, schedules, edits and cancels through the
+   admin API.
 
 Streams keeps its own `/sync` Socket.IO namespace until the watch page
 moves over to `sync.js`. That move is a later, separate change.
@@ -236,8 +260,8 @@ moves over to `sync.js`. That move is a later, separate change.
 | Plex token, written to `~/media-sync/plex-token` (mode 600) on the box by you | you |
 | Which Plex libraries the drive-in may show (listed from the server once the token is there) | you |
 | Running the sudo steps once: systemd unit and nginx locations (a script, provided for review) | you |
-| Go-ahead on the three streams changes above, when it's time | you |
-| Everything else: relay, drive-in, admin page, tests, deploy script | me |
+| Go-ahead on the four streams changes above, when it's time | you |
+| Everything else: relay, drive-in backend, the streams pages, tests, deploy script | me |
 
 ## Build order
 
@@ -247,8 +271,8 @@ moves over to `sync.js`. That move is a later, separate change.
    tests.
 3. The drive-in room driven by the schedule, plus warm-up.
 4. Admin API and checks, then the admin page.
-5. Viewer page: lobby, intermission card, "Technical difficulties", end
-   card.
-6. Deploy script and sudo script for review. Streams changes once
-   approved.
+5. The drive-in page and the Manage tab, built and tested against
+   media-sync locally with a fake auth header. They go into streams only
+   once approved.
+6. Deploy script and sudo script for review, then the streams changes.
 7. Acceptance D1–D7.

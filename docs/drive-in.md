@@ -38,6 +38,63 @@ panel. Viewers never notice there are two services.
 - In production media-sync serves no HTML. Its `example/` page stays for
   local development only.
 
+## How it appears in streams
+
+Decided by a three-way panel: a plain On Air tile played on Watch, a
+dedicated Drive-in tab, or a hybrid. The panel was grounded in a map of
+the streams code. **The hybrid won:** a showing is listed where people
+already look, and plays on its own screen.
+
+- **Listed in On Air.**
+  - A showing is a tile in the On Air rail and is counted in the chip
+    ("3 on air · 1 showing") from the lobby until the end.
+  - It travels in a separate `showings` list next to `on_air`, never
+    inside it, so Activity, Browse and every other `on_air` consumer are
+    untouched.
+  - The existing `tile` macro and `tileHtml` each get one `kind ==
+    'showing'` branch: no preview still, a countdown in the lobby, no
+    "Add to wall".
+- **Its own key family that the channel checks reject.** Keys look like
+  `di12`. The channel KEY regexes (`shell.py`, `room.py`,
+  `watch_service.py`, `onair.js`) are deliberately left alone, so the
+  existing code refuses showings without any special-casing:
+  - the multiview won't take them
+  - the Watch page won't play them
+  - channel presence ignores them
+- **Lamps follow the Control Room rules.**
+
+  | phase | lamp | word |
+  |---|---|---|
+  | lobby | `--cue`, blinking | "Lobby · 12:04" |
+  | intermission | `--cue`, steady | "Interval" |
+  | playing | `--tally` | "Showing" |
+
+- **It plays on its own screen.**
+  - `/drive-in/<id>` extends `base.html`, so the shell, chip and login
+    are the same as everywhere else.
+  - It uses a plain `<video>`, hls.js and `sync.js`, with no video.js.
+    Watch's live-DVR player (liveui, seek-to-live, click-to-pause,
+    reload-on-error, hidden-tab release) is the wrong host for a showing,
+    and making it fit would mean branches throughout `watch.js`, which
+    every live channel depends on.
+  - It never releases the video on a hidden tab, and needs one tap to
+    unmute.
+  - Its "who's here" comes from media-sync, which knows exactly who is
+    connected.
+- **Chromecast is off in v1.** The default receiver plays the URL with
+  no sync client and would drift. The button says "Showings can't be cast
+  in sync."
+- **Timeline (v1.1).** Upcoming showings get a pinned "Drive-in" lane
+  above the virtualised channel rows, not a fake channel row. A row with
+  no `tvg_id` would break the index-based row offsets. It is held to v1.1
+  because it is the riskiest UI piece.
+- **No nav tab.** A tab that is empty most weeks, while the chip reads
+  "0 on air" during a showing, is the wrong signal.
+
+Streams-side size is about 1,100 lines, of which about 350 touch shared
+surfaces (the chip and tile macros, their JS twins and the twin tests).
+Most of it is the drive-in screen.
+
 ## Who can do what
 
 Both use the streams login, through the nginx `auth_request` handoff in
@@ -243,9 +300,16 @@ This is the whole streams side:
    - `/media/` goes to media-sync without `auth_request`; the grant is
      the authorization.
    - Add tests in `tests/test_nginx_auth.py`.
-3. **Drive-in page:** a streams route and template in the shell, with a
-   nav link. It loads `sync.js` and hls.js and renders the lobby,
-   intermission, technical-difficulties and end cards.
+3. **Drive-in screen and listing:**
+   - The `/drive-in/<id>` route and template in the shell. It loads
+     `sync.js` and hls.js and renders the lobby, intermission,
+     technical-difficulties and end cards.
+   - A `showings` list pushed next to `on_air`, redacted per viewer.
+   - One showing branch in the `tile` macro and `tileHtml`, the chip
+     summary and its twin, and the twin-test fixtures.
+   - The `lamp--lobby` and `lamp--interval` classes.
+   - Cast turned off for showings.
+   - The pinned Timeline lane, in v1.1.
 4. **Manage → Drive-in tab:** a streams template using the Manage
    panel's layout. It searches, schedules, edits and cancels through the
    admin API.

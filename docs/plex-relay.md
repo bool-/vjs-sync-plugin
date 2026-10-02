@@ -340,7 +340,9 @@ streams.fucking.lol (nginx, TLS)
 
 - nginx runs `auth_request` against a small streams endpoint once per
   WebSocket connection, not per segment. The endpoint answers 204 with
-  `X-Streams-User: <id>` and `X-Streams-Name: <display name>`, or 401.
+  `X-Streams-User: <id>`, `X-Streams-Name: <display name>` and, for streams
+  admins, `X-Streams-Admin: 1`, or 401. The drive-in admin page uses the
+  admin flag ([drive-in.md](drive-in.md#who-can-do-what)).
 - nginx forwards those headers with `auth_request_set` and **overwrites
   any client-sent copies**.
 - media-sync binds `127.0.0.1` only. It trusts `X-Streams-*` only from

@@ -370,6 +370,19 @@ Unit settings, following streams' conventions:
 The unit and nginx changes need sudo once; after that, deploying means
 copying the binary and running `systemctl restart media-sync`.
 
+### Repository
+
+When the streams work starts, this repo merges into the streams repo as
+`media-sync/` (Go module, `client/`, docs), keeping its history, and
+`vjs-sync-plugin` is archived with a pointer to the new location.
+
+- Protocol changes and the streams pages that use them then ship in one
+  PR, and streams' tests can run the real binary.
+- On the box, deploying becomes `git pull`, `go build` in `media-sync/`,
+  then `systemctl restart media-sync`.
+- It stays a separate process with its own unit. The isolation comes
+  from running two processes, not from having two repos.
+
 ### Watch out for
 
 - **Egress is shared.** IPTV already leaves from this droplet. Check the

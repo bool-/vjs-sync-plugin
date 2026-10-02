@@ -154,24 +154,21 @@ idle ─────────────────────────
      there is no duplicate upstream call.
   4. The existing ready barrier and 5 s cap stay as they are.
 
-### Timeline
+### Timeline (confirmed in #4)
 
-Sync works in movie time: `currentTime` has to equal seconds into the film
-at every level. Plex's HLS output may start its timestamps at 0 after an
-`offset` restart.
+Plex serves a **full-length VOD playlist with on-demand segments**: an
+83-minute film gives 997 × 5 s segments plus `#EXT-X-ENDLIST`, and a
+segment far ahead is transcoded when requested. Segment timestamps are
+movie time plus a constant 10 s, which hls.js normalises. So:
 
-**Verify before building (#4).** Whatever Plex does, the relay
-hands the client a timeline that starts at 0 for the whole film:
-
-- If Plex serves a full-length playlist that transcodes segments on
-  demand, pass it through re-addressed. A seek is then just a segment
-  request.
-- If Plex's playlist starts at the offset, the relay emits its own
-  full-length VOD playlist of fixed-length segments. It maps each `seq` to
-  (session, Plex segment) and restarts the session when a request lands
-  outside what is transcoded.
-
-The client never needs to know which case applies.
+- The relay re-addresses Plex's own playlist, with no synthetic timeline.
+  A forward seek is just a segment request.
+- A session starts at `offset` and returns **empty 188-byte segments for
+  anything before it**. A request below the session's first produced
+  segment means the relay restarts that level at the requested offset.
+  Undersized segments are a miss: retried, never cached.
+- Segment length differs by level: 480p 8 s, 720p 5 s, 1080p 1 s. The
+  levels never align, so hls.js automatic level switching stays off.
 
 ## Cache
 
@@ -383,31 +380,30 @@ copying the binary and running `systemctl restart media-sync`.
   the video.js `loadSource` adapter and the old namespace is removed.
   That is a separate streams change, done later.
 
-## Verify first (#4)
+## Plex facts (from #4)
 
-Each of these changes the design depending on the answer:
-
-1. **HLS timeline.** Does Plex serve a full-length on-demand playlist, or
-   one starting at `offset`? This decides between the two timeline cases
-   above.
-2. **Session identity.** Can one token run 3 parallel sessions with
-   different client identifiers and levels, without Plex merging or
-   killing them?
-3. **Idle kill.** How long does Plex keep a transcode alive without
-   requests or pings? This sets the ping interval.
-4. **Pref IDs.** The exact pref names for the per-stream remote cap and the
-   total upload speed.
-5. **Entitlement.** Do relayed transcodes from a remote address work on this
-   account?
-6. **Segment format.** MPEG-TS or fMP4, and the segment length. This
-   affects the size cap and the prefetch count.
+- PMS 1.43.4, reachable at `https://…plex.direct:11226`; port 32400 is
+  closed.
+- The owner has lifetime Plex Pass, so remote playback through the relay
+  is covered.
+- `WanPerStreamMaxUploadRate`, `WanTotalMaxUploadRate` and
+  `WanPerUserStreamCount` are all 0 (unlimited). These are the IDs the
+  preflight reads.
+- Three sessions per token in parallel work. Cold seeks with all three
+  levels running took 2.2–5.7 s, so prefetch matters.
+- Idle sessions are not reaped for at least 90 s; the relay stops them
+  itself.
+- The default profile transcodes audio to MP3. Request AAC through
+  `X-Plex-Client-Profile-Extra`.
+- Allowed libraries: 1 (Movies) and 2 (TV Shows). The 4K libraries are
+  excluded.
 
 ## Build order
 
 1. #3: media IDs and the `Source` interface, plus a `url:` source and the
    `media` grant message.
 2. The `plex` package and the preflight checks, against the hostile fake.
-3. #4 spike against the real server, then adjust the timeline section.
+3. ~~#4 spike~~: done. See Plex facts.
 4. #5: relay path, grants, single-flight cache, leak tests.
 5. #6: sessions per level, keepalive and idle stop, master playlist, client
    level choice.

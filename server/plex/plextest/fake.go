@@ -206,7 +206,9 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{"MediaContainer": map[string]any{"Hub": list}})
 	case p == "/photo/:/transcode":
 		w.Header().Set("Content-Type", "image/jpeg")
-		w.Write([]byte("\xff\xd8\xff\xe0JFIF-fake-poster-" + Token))
+		// Media bytes are passed through as they are, so the fake keeps the
+		// token out of them; it plants it everywhere else.
+		w.Write([]byte("\xff\xd8\xff\xe0JFIF-fake-poster"))
 	case p == "/video/:/transcode/universal/decision":
 		writeJSON(w, map[string]any{"MediaContainer": map[string]any{"generalDecisionText": "ok " + Token}})
 	case p == "/video/:/transcode/universal/start.m3u8":
@@ -264,7 +266,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 			size = 40 << 20
 		}
 		body := bytes.Repeat([]byte{0x47}, size)
-		copy(body[100:], fmt.Sprintf("seg %s %d token=%s", sess, seq, Token))
+		copy(body[100:], fmt.Sprintf("seg %s %d ", sess, seq))
 		w.Write(body)
 	case p == "/video/:/transcode/universal/ping":
 		w.WriteHeader(http.StatusOK)
@@ -327,7 +329,8 @@ func (s *Server) raw(it Item) map[string]any {
 		m["parentTitle"], m["index"], m["parentRatingKey"] = it.Show, it.Season, it.Parent
 	}
 	if it.Height > 0 {
-		m["Media"] = []any{map[string]any{"height": it.Height}}
+		// A scope picture: shorter than its tier, which is what counts.
+		m["Media"] = []any{map[string]any{"height": it.Height * 3 / 4, "videoResolution": strconv.Itoa(it.Height)}}
 	}
 	return m
 }

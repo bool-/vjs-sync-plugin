@@ -316,12 +316,25 @@ func (r rawItem) item() Item {
 		it.SectionID, _ = strconv.Atoi(v)
 	}
 	if len(r.Media) > 0 {
-		it.Height = r.Media[0].Height
-		if it.Height == 0 {
-			it.Height, _ = strconv.Atoi(r.Media[0].VideoResolution)
-		}
+		it.Height = resolutionTier(r.Media[0].VideoResolution, r.Media[0].Height)
 	}
 	return it
+}
+
+// resolutionTier is the quality tier Plex files an item under ("1080",
+// "720", "4k", "sd"), not its pixel height: a scope 1080p film is about 800
+// pixels tall but should still offer the 1080p level.
+func resolutionTier(res string, height int) int {
+	switch strings.ToLower(res) {
+	case "4k":
+		return 2160
+	case "sd":
+		return 480
+	}
+	if n, err := strconv.Atoi(strings.TrimSuffix(strings.ToLower(res), "p")); err == nil && n > 0 {
+		return n
+	}
+	return height
 }
 
 // ValidKey reports whether s looks like a Plex ratingKey. Keys go into

@@ -1,3 +1,5 @@
+> **Archived.** media-sync now lives in [bool-/streams-fucking-lol/media-sync](https://github.com/bool-/streams-fucking-lol/tree/main/media-sync), with this history, the Plex relay and the drive-in. File issues there.
+
 # media-sync
 
 Keep video players in step across browsers: a watch party where anyone can
